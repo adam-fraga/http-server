@@ -27,7 +27,6 @@ impl Server {
                                 Ok(res) => {}
                                 Err(e) => print!("Failed to parse request: {} ", e),
                             }
-                            let res: &Result<Request, _> = &buffer[..].try_into();
                         }
                         Err(e) => println!("fail to read from connection: {}", e),
                     }

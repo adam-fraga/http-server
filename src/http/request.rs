@@ -5,34 +5,43 @@ use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use std::str;
 use std::str::Utf8Error;
 
-pub struct Request {
-    path: String,
-    query: Option<String>,
+pub struct Request<'a> {
+    path: &'a str,
+    query_string: Option<&'a str>,
     method: Method,
 }
 
-impl Request {
+impl Request<'_> {
     fn from_byte_array(buf: &[u8]) -> Result<Self, String> {
         unimplemented!();
     }
 }
 
-impl TryFrom<&[u8]> for Request {
+impl<'a> TryFrom<&'a [u8]> for Request<'a> {
     type Error = ParseError;
     //The ? look for from method in the appropriate data struc which here is ParseError
-    fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
+    fn try_from(buf: &'a [u8]) -> Result<Request<'a>, Self::Error> {
         let request = str::from_utf8(buf)?;
 
         let (method, request) = get_next_word(request).ok_or(ParseError::InvalidRequest)?;
-        let (path, request) = get_next_word(request).ok_or(ParseError::InvalidRequest)?;
+        let (mut path, request) = get_next_word(request).ok_or(ParseError::InvalidRequest)?;
         let (protocol, _) = get_next_word(request).ok_or(ParseError::InvalidRequest)?;
 
         if protocol != "HTTP/1.1" {
             return Err(ParseError::InvalidProtocol);
         }
         let method: Method = method.parse()?;
+        let mut query_string = None;
+        if let Some(i) = path.find('?') {
+            query_string = Some(&path[i + 1..]);
+            path = &path[..i];
+        }
 
-        unimplemented!()
+        Ok(Self {
+            path: path,
+            query_string,
+            method,
+        })
     }
 }
 
@@ -67,7 +76,7 @@ impl ParseError {
     }
 }
 
-impl From<MethodError> for MethodError {
+impl From<MethodError> for ParseError {
     fn from(_: MethodError) -> Self {
         Self::InvalidMethod
     }
@@ -75,7 +84,7 @@ impl From<MethodError> for MethodError {
 
 impl From<Utf8Error> for ParseError {
     fn from(_: Utf8Error) -> Self {
-        Self::InvalidEncoding
+        Self::InvaidEncoding
     }
 }
 
